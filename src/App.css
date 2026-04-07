@@ -1,0 +1,10 @@
+/* App.css is intentionally kept minimal, relying on index.css utilities */
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
