@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Menu, X } from 'lucide-react';
+import { ShoppingBag, Menu, X, UserCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const Navbar = () => {
+const Navbar = ({ currentUser, onLoginClick, onLogoutClick, onNavigate }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -36,16 +36,27 @@ const Navbar = () => {
       <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 
         {/* Logo */}
-        <a href="#" style={{ fontSize: '1.5rem', fontFamily: 'var(--font-serif)', fontWeight: 600, letterSpacing: '2px' }}>
+        <a 
+          href="#" 
+          onClick={(e) => { e.preventDefault(); onNavigate('home'); }}
+          style={{ fontSize: '1.5rem', fontFamily: 'var(--font-serif)', fontWeight: 600, letterSpacing: '2px' }}
+        >
           VETRI<span className="text-gold">VEL</span>
         </a>
 
         {/* Desktop Links */}
         <div style={{ display: 'none' }} className="desktop-nav">
           <ul style={{ display: 'flex', gap: '2rem', listStyle: 'none', alignItems: 'center' }}>
-            {['Collections', 'Story', 'Gifting'].map((item) => (
+            {['Collections', 'Story', 'Gifting', ...(currentUser?.role?.toLowerCase() === 'admin' ? ['Orders'] : [])].map((item) => (
               <li key={item}>
-                <a href={`#${item.toLowerCase()}`} style={{ fontSize: '0.9rem', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                <a 
+                  href={`#${item.toLowerCase()}`} 
+                  onClick={() => {
+                    const view = item === 'Orders' ? 'admin' : 'home';
+                    onNavigate(view);
+                  }}
+                  style={{ fontSize: '0.9rem', letterSpacing: '1px', textTransform: 'uppercase' }}
+                >
                   {item}
                 </a>
               </li>
@@ -55,6 +66,26 @@ const Navbar = () => {
 
         {/* Icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <button
+            className="login-btn"
+            onClick={() => { if (!currentUser) onLoginClick(); else onLogoutClick(); }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '999px',
+              padding: '0.6rem 1rem',
+              background: 'rgba(255,255,255,0.03)'
+            }}
+          >
+            <UserCircle2 size={18} />
+            <span style={{ fontSize: '0.85rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              {currentUser ? currentUser.name : 'Login'}
+            </span>
+          </button>
+
           <button className="cart-btn" style={{ position: 'relative', color: 'var(--text-primary)' }}>
             <ShoppingBag size={20} />
             <span style={{
@@ -115,11 +146,15 @@ const Navbar = () => {
               </button>
             </div>
             <ul style={{ display: 'flex', flexDirection: 'column', gap: '2rem', listStyle: 'none' }}>
-              {['Collections', 'Story', 'Gifting'].map((item) => (
+              {['Collections', 'Story', 'Gifting', ...(currentUser?.role?.toLowerCase() === 'admin' ? ['Orders'] : [])].map((item) => (
                 <li key={item}>
                   <a
                     href={`#${item.toLowerCase()}`}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={() => {
+                      const view = item === 'Orders' ? 'admin' : 'home';
+                      onNavigate(view);
+                      setMobileMenuOpen(false);
+                    }}
                     style={{ fontSize: '1.5rem', fontFamily: 'var(--font-serif)' }}
                   >
                     {item}
@@ -140,8 +175,24 @@ const Navbar = () => {
           color: var(--accent-gold) !important;
           transform: scale(1.1);
         }
+        .login-btn:hover {
+          color: var(--accent-gold) !important;
+          border-color: rgba(212, 175, 55, 0.45) !important;
+          transform: translateY(-1px);
+        }
         .cart-btn {
           transition: all 0.2s ease;
+        }
+        .login-btn {
+          transition: all 0.2s ease;
+        }
+        @media (max-width: 767px) {
+          .login-btn span {
+            display: none;
+          }
+          .login-btn {
+            padding: 0.6rem;
+          }
         }
       `}</style>
     </motion.nav>

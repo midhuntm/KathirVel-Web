@@ -21,7 +21,7 @@ const ProductCard = ({ product }) => {
     >
       <div style={{ position: 'relative', height: '350px', overflow: 'hidden' }}>
         <motion.img 
-          src={product.image} 
+          src={product.image || 'https://images.unsplash.com/photo-1601121141461-9d6647bca1ed?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'} 
           alt={product.name}
           animate={{ scale: isHovered ? 1.05 : 1 }}
           transition={{ duration: 0.4 }}
@@ -77,7 +77,7 @@ const ProductCard = ({ product }) => {
           {product.name}
         </h3>
         <p style={{ color: 'var(--accent-gold)', fontWeight: 600 }}>
-          ${product.price}
+          Rs. {product.price}
         </p>
       </div>
     </motion.div>
