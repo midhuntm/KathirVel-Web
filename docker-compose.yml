@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - royal-network
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017
+      - MONGODB_DB_NAME=RoyalOrnaments
+      - JWT_SECRET=change_me_in_production
+      - STRIPE_SECRET_KEY=sk_test_placeholder
+    depends_on:
+      - mongodb
+    networks:
+      - royal-network
+
+  frontend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - royal-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  royal-network:
+    driver: bridge

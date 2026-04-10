@@ -29,6 +29,7 @@ class AcceptInviteRequest(BaseModel):
 class OrnamentCreate(BaseModel):
     name: str = Field(min_length=1)
     price: float = Field(ge=0)
+    originalPrice: Optional[float] = None
     category: str = "General"
     image: Optional[str] = None
     description: Optional[str] = None

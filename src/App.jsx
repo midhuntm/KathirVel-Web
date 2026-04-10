@@ -1,33 +1,36 @@
 import React, { useEffect, useState } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser, logoutUser } from './store/userSlice';
+
 import Navbar from './components/Navbar';
-import Hero from './components/Hero';
-import ProductGrid from './components/ProductGrid';
 import LoginModal from './components/LoginModal';
 import LogoutModal from './components/LogoutModal';
-import DataOverview from './components/DataOverview';
+import Footer from './components/Footer';
 import UserDetail from './components/UserDetail';
 import OrderDetail from './components/OrderDetail';
-import Footer from './components/Footer';
+
+import Home from './pages/Home';
+import Shop from './pages/Shop';
+import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
+import AdminDashboard from './pages/AdminDashboard';
+
 import { createUser, fetchOrnaments, fetchUsers, inviteAdmin, loginUser, createOrnament } from './services/api';
 import { buildOrders } from './utils/orders';
 import './App.css';
 
 function App() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const currentUser = useSelector((state) => state.user.currentUser);
+
   const [ornaments, setOrnaments] = useState([]);
   const [users, setUsers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem('vetrivel_user');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+  
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
-  const [currentView, setCurrentView] = useState('home');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -38,12 +41,10 @@ function App() {
       try {
         setIsLoading(true);
         setLoadError('');
-
         const [ornamentData, userData] = await Promise.all([
           fetchOrnaments(),
           fetchUsers(),
         ]);
-
         setOrnaments(ornamentData);
         setUsers(userData);
       } catch (error) {
@@ -52,15 +53,12 @@ function App() {
         setIsLoading(false);
       }
     };
-
     loadData();
   }, []);
 
   const handleLogin = async (credentials) => {
     const response = await loginUser(credentials);
-    setCurrentUser(response.user);
-    if (response.token) localStorage.setItem('vetrivel_token', response.token);
-    localStorage.setItem('vetrivel_user', JSON.stringify(response.user));
+    dispatch(setUser({ user: response.user, token: response.token }));
     setIsLoginOpen(false);
     return response;
   };
@@ -68,46 +66,22 @@ function App() {
   const handleRegister = async (payload) => {
     const response = await createUser(payload);
     setUsers((current) => [...current, response.item]);
-    setCurrentUser(response.item);
-    if (response.token) localStorage.setItem('vetrivel_token', response.token);
-    localStorage.setItem('vetrivel_user', JSON.stringify(response.item));
+    dispatch(setUser({ user: response.item, token: response.token }));
     setIsLoginOpen(false);
     return response;
   };
 
-  const handleInviteAdmin = async (payload) => {
-    const response = await inviteAdmin(payload);
-    return response;
-  };
-
-  const handleCreateOrnament = async (payload) => {
-    const response = await createOrnament(payload);
-    setOrnaments((current) => [...current, response.item]);
-    return response;
-  };
-
-  const handleNavigateToUser = (user) => {
-    if (user) {
-      setSelectedOrder(null);
-      setSelectedUser(user);
-      setCurrentView('user_detail');
-    }
-  };
-
-  const handleNavigateToOrder = (order) => {
-    if (order) {
-      setSelectedUser(null);
-      setSelectedOrder(order);
-      setCurrentView('order_detail');
-    }
-  };
-
   const handleLogout = () => {
-    setCurrentUser(null);
-    setCurrentView('home');
+    dispatch(logoutUser());
     setIsLogoutOpen(false);
-    localStorage.removeItem('vetrivel_user');
-    localStorage.removeItem('vetrivel_token');
+    navigate('/');
+  };
+
+  const handleNavigate = (view) => {
+    if (view === 'home' || view === 'Home') navigate('/');
+    if (view === 'admin' || view === 'Admin') navigate('/admin');
+    if (view === 'shop' || view === 'Shop') navigate('/shop');
+    if (view === 'cart' || view === 'Cart') navigate('/cart');
   };
 
   return (
@@ -116,70 +90,58 @@ function App() {
         currentUser={currentUser}
         onLoginClick={() => setIsLoginOpen(true)}
         onLogoutClick={() => setIsLogoutOpen(true)}
-        onNavigate={(view) => setCurrentView(view)}
+        onNavigate={handleNavigate}
       />
       <main>
-        {currentView === 'home' && (
-          <>
-            <Hero />
-            <ProductGrid
-              products={ornaments}
-              isLoading={isLoading}
-              error={loadError}
+        <Routes>
+          <Route path="/" element={<Home ornaments={ornaments} isLoading={isLoading} error={loadError} />} />
+          <Route path="/shop" element={<Shop ornaments={ornaments} isLoading={isLoading} error={loadError} />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/admin/*" element={
+            <AdminDashboard 
+              ornaments={ornaments} 
+              users={users} 
+              currentUser={currentUser} 
+              isLoading={isLoading} 
+              error={loadError} 
+              onInviteAdmin={inviteAdmin} 
+              onCreateOrnament={async (p) => {
+                const res = await createOrnament(p);
+                setOrnaments(curr => [...curr, res.item]);
+                return res;
+              }} 
+              orders={orders} 
             />
-          </>
-        )}
-        
-        {currentView === 'admin' && currentUser?.role?.toLowerCase() === 'admin' && (
-          <DataOverview
-            ornaments={ornaments}
-            users={users}
-            currentUser={currentUser}
-            isLoading={isLoading}
-            error={loadError}
-            onInviteAdmin={handleInviteAdmin}
-            onCreateOrnament={handleCreateOrnament}
-            orders={orders}
-            onNavigateToUser={handleNavigateToUser}
-            onNavigateToOrder={handleNavigateToOrder}
-          />
-        )}
-
-        {currentView === 'user_detail' && selectedUser && (
-          <UserDetail 
-            user={selectedUser} 
-            orders={orders}
-            onBack={() => {
-              setSelectedUser(null);
-              setCurrentView('admin');
-            }}
-          />
-        )}
-
-        {currentView === 'order_detail' && selectedOrder && (
-          <OrderDetail
-            order={selectedOrder}
-            onBack={() => {
-              setSelectedOrder(null);
-              setCurrentView('admin');
-            }}
-          />
-        )}
+          } />
+          {/* Temporary inline routes for legacy detail components */}
+          <Route path="/admin/user/:id" element={
+             <UserDetailWrapper users={users} orders={orders} onBack={() => navigate('/admin')} />
+          } />
+          <Route path="/admin/order/:id" element={
+             <OrderDetailWrapper orders={orders} onBack={() => navigate('/admin')} />
+          } />
+        </Routes>
       </main>
       <Footer />
-      <LoginModal
-        isOpen={isLoginOpen}
-        onClose={() => setIsLoginOpen(false)}
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-      />
-      <LogoutModal
-        isOpen={isLogoutOpen}
-        onClose={() => setIsLogoutOpen(false)}
-        onLogout={handleLogout}
-      />
+      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} onLogin={handleLogin} onRegister={handleRegister} />
+      <LogoutModal isOpen={isLogoutOpen} onClose={() => setIsLogoutOpen(false)} onLogout={handleLogout} />
     </div>
   );
+}
+
+import { useParams } from 'react-router-dom';
+function UserDetailWrapper({ users, orders, onBack }) {
+    const { id } = useParams();
+    const user = users.find(u => u.id === id);
+    if (!user) return <div style={{padding:'8rem', textAlign:'center'}}>User not found</div>;
+    return <UserDetail user={user} orders={orders} onBack={onBack} />;
+}
+function OrderDetailWrapper({ orders, onBack }) {
+    const { id } = useParams();
+    const order = orders.find(o => o.tracker_id === id);
+    if (!order) return <div style={{padding:'8rem', textAlign:'center'}}>Order not found</div>;
+    return <OrderDetail order={order} onBack={onBack} />;
 }
 
 export default App;

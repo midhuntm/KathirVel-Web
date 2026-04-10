@@ -1,74 +1,148 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import ProductCard from './ProductCard';
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.2
-    }
-  }
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 50 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+  hidden: { opacity: 0, y: 30, scale: 0.95 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" } },
+  exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
 };
 
 const ProductGrid = ({ products, isLoading, error }) => {
+  const [selectedCategory, setSelectedCategory] = useState('All');
+
+  // Derive unique categories from products
+  const categories = useMemo(() => {
+    if (!products) return ['All'];
+    const uniqueCats = new Set(products.map(p => p.category).filter(Boolean));
+    return ['All', ...Array.from(uniqueCats)];
+  }, [products]);
+
+  // Filter products based on selected category
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    if (selectedCategory === 'All') return products;
+    return products.filter(p => p.category === selectedCategory);
+  }, [products, selectedCategory]);
+
   return (
-    <section id="collections" style={{ padding: '8rem 0' }}>
+    <section className="product-grid-container" style={{ padding: '6rem 5%' }}>
       <div className="container">
         
-        <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-          <span style={{ color: 'var(--accent-gold)', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <span style={{ color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem', fontWeight: 600 }}>
             Featured
           </span>
-          <h2 style={{ fontSize: '3rem', marginTop: '0.5rem' }}>Curated Selections</h2>
-          <div style={{ width: '60px', height: '2px', background: 'var(--accent-gold)', margin: '2rem auto' }} />
+          <h2 className="product-grid-title" style={{ marginTop: '0.5rem', marginBottom: '1.5rem' }}>Curated Selections</h2>
+          <div style={{ width: '60px', height: '2px', background: 'var(--color-gold)', margin: '0 auto 2.5rem auto' }} />
+          
+          {/* Category Filter */}
+          {!isLoading && !error && products && products.length > 0 && (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              gap: '1rem', 
+              flexWrap: 'wrap',
+              marginBottom: '3rem'
+            }}>
+              {categories.map(category => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  style={{
+                    padding: '0.6rem 1.5rem',
+                    borderRadius: '999px',
+                    border: `1px solid ${selectedCategory === category ? 'var(--color-gold)' : 'var(--color-gray-light)'}`,
+                    background: selectedCategory === category ? 'var(--color-gold)' : 'transparent',
+                    color: selectedCategory === category ? 'var(--color-white)' : 'var(--color-charcoal)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.9rem',
+                    fontWeight: selectedCategory === category ? 600 : 400,
+                    cursor: 'pointer',
+                    transition: 'all var(--transition-smooth)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedCategory !== category) {
+                      e.currentTarget.style.borderColor = 'var(--color-gold)';
+                      e.currentTarget.style.color = 'var(--color-black)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedCategory !== category) {
+                      e.currentTarget.style.borderColor = 'var(--color-gray-light)';
+                      e.currentTarget.style.color = 'var(--color-charcoal)';
+                    }
+                  }}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-100px" }}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '2.5rem'
-          }}
-        >
-          {isLoading && (
-            <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              Loading ornaments from MongoDB...
-            </p>
-          )}
+        {isLoading && (
+          <p style={{ textAlign: 'center', color: 'var(--color-charcoal)', padding: '4rem' }}>
+            Loading curated pieces...
+          </p>
+        )}
 
-          {!isLoading && error && (
-            <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#ffb3b3' }}>
-              {error}
-            </p>
-          )}
+        {!isLoading && error && (
+          <p style={{ textAlign: 'center', color: 'red', padding: '4rem' }}>
+            {error}
+          </p>
+        )}
 
-          {!isLoading && !error && products.length === 0 && (
-            <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              No ornaments found in the backend collection yet.
-            </p>
-          )}
+        {!isLoading && !error && products && products.length === 0 && (
+          <p style={{ textAlign: 'center', color: 'var(--color-charcoal)', padding: '4rem' }}>
+            Our collection is currently being updated. Please check back shortly.
+          </p>
+        )}
 
-          {!isLoading && !error && products.map((product, index) => (
-            <motion.div key={product.id || product._id || index} variants={itemVariants}>
-              <ProductCard product={product} />
-            </motion.div>
-          ))}
-        </motion.div>
+        {!isLoading && !error && (
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="products-wrapper"
+          >
+            <AnimatePresence mode="popLayout">
+              {filteredProducts.map((product) => (
+                <motion.div 
+                  key={product.id || product._id} 
+                  variants={itemVariants}
+                  initial="hidden"
+                  animate="show"
+                  exit="exit"
+                  layout
+                >
+                  <ProductCard product={product} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            
+            {filteredProducts.length === 0 && products.length > 0 && (
+              <motion.p 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--color-charcoal)', padding: '2rem 0' }}
+              >
+                No pieces found in this category.
+              </motion.p>
+            )}
+          </motion.div>
+        )}
         
-        <div style={{ textAlign: 'center', marginTop: '4rem' }}>
-          <button className="btn-outline">View All Pieces</button>
-        </div>
+        {!isLoading && !error && filteredProducts.length > 0 && (
+          <div style={{ textAlign: 'center', marginTop: '5rem' }}>
+            <button className="btn-secondary">View All Pieces</button>
+          </div>
+        )}
       </div>
     </section>
   );
