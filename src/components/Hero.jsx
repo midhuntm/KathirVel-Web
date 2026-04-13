@@ -14,7 +14,7 @@ const Hero = () => {
           display: 'block',
           marginBottom: '1rem'
         }} className="animate-fade-in">
-          The 2026 Collections
+          The 2026 Collection
         </span>
         
         <h1>
