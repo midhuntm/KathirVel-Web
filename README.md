@@ -25,7 +25,7 @@ Ensure you have MongoDB running locally on port `27017` or use a MongoDB Atlas c
 ### 2. Backend Setup
 ```bash
 cd backend
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -36,6 +36,18 @@ cp .env.example .env
 Start the API:
 ```bash
 uvicorn app.main:app --reload --port 8000
+```
+
+#### Python Runtime Note
+- Use `Python 3.11` or `3.12` for local backend development.
+- `Python 3.14` is not supported by the pinned backend dependency set (notably `pydantic_core==2.27.2`).
+- If `.venv` was created in a different folder path and scripts fail with `bad interpreter`, recreate it:
+```bash
+cd backend
+rm -rf .venv
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ### 3. Frontend Setup
