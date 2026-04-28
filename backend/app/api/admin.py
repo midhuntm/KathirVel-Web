@@ -20,6 +20,8 @@ def send_invitation_email(recipient_email, recipient_name, invite_token):
     smtp_password = os.getenv("SMTP_PASSWORD")
     sender_email = os.getenv("SMTP_SENDER_EMAIL", smtp_username)
 
+    
+
     if not all([smtp_host, smtp_port, smtp_username, smtp_password, sender_email]):
         return False
 
