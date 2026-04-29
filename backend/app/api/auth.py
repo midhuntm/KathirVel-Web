@@ -28,19 +28,28 @@ def login(payload: LoginRequest):
     
     # Check password
     stored_password = user.get("password", "")
+    if not isinstance(stored_password, str):
+        stored_password = ""
     is_valid = False
     
-    if stored_password.startswith("$2b$"):
-        is_valid = verify_password(payload.password, stored_password)
+    if stored_password.startswith("$2"):
+        try:
+            is_valid = verify_password(payload.password, stored_password)
+        except Exception:
+            # Malformed hash in legacy data should not crash login.
+            is_valid = False
     else:
         # Fallback to plain text for legacy, but we should upgrade it
         is_valid = (payload.password == stored_password)
         if is_valid:
-            # Upgrade password silently
-            database.user.update_one(
-                {"_id": user["_id"]}, 
-                {"$set": {"password": get_password_hash(payload.password)}}
-            )
+            # Upgrade password silently, but never fail login if upgrade fails.
+            try:
+                database.user.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {"password": get_password_hash(payload.password)}}
+                )
+            except Exception:
+                pass
 
     if not is_valid:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
