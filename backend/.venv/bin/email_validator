@@ -1,4 +1,4 @@
-#!/Users/apple/Documents/KathirVel-Web/backend/.venv/bin/python
+#!/Users/apple/Documents/Study/KathirVel/KathirVel-Web/backend/.venv/bin/python3.12
 import sys
 from email_validator.__main__ import main
 if __name__ == '__main__':
