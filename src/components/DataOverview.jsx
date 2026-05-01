@@ -1,11 +1,11 @@
 import React from 'react';
 
 const cardStyle = {
-  background: 'var(--color-white)',
-  border: '1px solid var(--color-gray-light)',
-  borderRadius: '8px',
+  background: 'linear-gradient(180deg, #ffffff 0%, #fffefb 100%)',
+  border: '1px solid #eee2c8',
+  borderRadius: '16px',
   padding: '2rem',
-  boxShadow: 'var(--shadow-subtle)',
+  boxShadow: '0 10px 20px rgba(28, 20, 5, 0.06)',
 };
 
 const tableStyle = {
@@ -74,8 +74,8 @@ const DataTable = ({ columns, rows, rawItems, onRowClick, emptyMessage, isLoadin
 const inputStyle = {
   width: '100%',
   background: 'var(--color-white)',
-  border: '1px solid var(--color-gray-light)',
-  borderRadius: '4px',
+  border: '1px solid #e8dcc2',
+  borderRadius: '10px',
   color: 'var(--color-black)',
   padding: '0.9rem 1rem',
   outline: 'none',
@@ -133,20 +133,32 @@ const AdminInviteCard = ({ currentUser, onInviteAdmin }) => {
 };
 
 const UploadOrnamentCard = ({ onCreateOrnament }) => {
-  const [form, setForm] = React.useState({ name: '', category: '', price: '', originalPrice: '' });
-  const [imageBase64, setImageBase64] = React.useState(null);
+  const [form, setForm] = React.useState({
+    name: '',
+    category: '',
+    price: '',
+    originalPrice: '',
+  });
+  const [imageBase64List, setImageBase64List] = React.useState([]);
   const [message, setMessage] = React.useState('');
   const [error, setError] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const handleChange = (e) => setForm((c) => ({ ...c, [e.target.name]: e.target.value }));
-  const handleImage = (localEvent) => {
-    const file = localEvent.target.files[0];
-    if (file) {
-      const r = new FileReader();
-      r.onloadend = () => setImageBase64(r.result);
-      r.readAsDataURL(file);
+  const handleImage = async (localEvent) => {
+    const files = Array.from(localEvent.target.files || []);
+    if (!files.length) {
+      setImageBase64List([]);
+      return;
     }
+    const encodeFile = (file) =>
+      new Promise((resolve) => {
+        const r = new FileReader();
+        r.onloadend = () => resolve(r.result);
+        r.readAsDataURL(file);
+      });
+    const encoded = await Promise.all(files.map((file) => encodeFile(file)));
+    setImageBase64List(encoded.filter(Boolean));
   };
 
   const handleSubmit = async (e) => {
@@ -157,7 +169,8 @@ const UploadOrnamentCard = ({ onCreateOrnament }) => {
         name: form.name, 
         category: form.category, 
         price: Number(form.price), 
-        image: imageBase64 
+        image: imageBase64List[0] || null,
+        images: imageBase64List,
       };
       if (form.originalPrice) {
          payload.originalPrice = Number(form.originalPrice);
@@ -165,7 +178,7 @@ const UploadOrnamentCard = ({ onCreateOrnament }) => {
       await onCreateOrnament(payload);
       setMessage('Ornament successfully uploaded!');
       setForm({ name: '', category: '', price: '', originalPrice: '' });
-      setImageBase64(null);
+      setImageBase64List([]);
     } catch (err) {
       setError(err.message || 'Unable to upload ornament.');
     } finally {
@@ -205,38 +218,65 @@ const UploadOrnamentCard = ({ onCreateOrnament }) => {
           <input name="price" type="number" value={form.price} onChange={handleChange} placeholder="5000" min="0" required style={inputStyle} />
         </label>
         <label style={{ display: 'grid', gap: '0.45rem' }}>
-          <span style={{ color: 'var(--color-charcoal)', fontSize: '0.9rem' }}>Image URL / File</span>
-          <input type="file" accept="image/*" onChange={handleImage} style={{ ...inputStyle, padding: '0.7rem 1rem' }} />
+          <span style={{ color: 'var(--color-charcoal)', fontSize: '0.9rem' }}>Product Images (Multiple)</span>
+          <input type="file" accept="image/*" multiple onChange={handleImage} style={{ ...inputStyle, padding: '0.7rem 1rem' }} />
         </label>
         <button type="submit" className="btn-primary" disabled={isSubmitting} style={{ width: '100%', padding: '0.95rem 1.25rem', opacity: isSubmitting ? 0.75 : 1 }}>
           {isSubmitting ? 'Uploading...' : 'Upload Data'}
         </button>
       </form>
+      <p style={{ marginTop: '0.75rem', color: 'var(--color-charcoal)' }}>
+        {imageBase64List.length > 0 ? `${imageBase64List.length} image(s) selected` : 'Select one or more images'}
+      </p>
+      {imageBase64List.length > 0 && (
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
+          {imageBase64List.slice(0, 6).map((img, index) => (
+            <img
+              key={`${index}-${img.slice(0, 24)}`}
+              src={img}
+              alt={`preview-${index + 1}`}
+              style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e3d8bf' }}
+            />
+          ))}
+        </div>
+      )}
       {message && <p style={{ color: 'green', marginTop: '1rem' }}>{message}</p>}
       {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
     </div>
   );
 };
 
-const DataOverview = ({ ornaments, users, orders, currentUser, isLoading, error, onInviteAdmin, onCreateOrnament, onNavigateToUser, onNavigateToOrder }) => {
+const DataOverview = ({ ornaments, users, orders, currentUser, isLoading, error, onInviteAdmin, onCreateOrnament, onDeleteOrnament, onNavigateToUser, onNavigateToOrder }) => {
   const [activeTab, setActiveTab] = React.useState('users');
+  const [deleteLoadingId, setDeleteLoadingId] = React.useState('');
+
+  const handleDeleteOrnament = async (ornamentId) => {
+    const ok = window.confirm('Delete this ornament? This action cannot be undone.');
+    if (!ok) return;
+    try {
+      setDeleteLoadingId(ornamentId);
+      await onDeleteOrnament(ornamentId);
+    } finally {
+      setDeleteLoadingId('');
+    }
+  };
 
   const navCardStyle = (isActive) => ({
     ...cardStyle,
     cursor: 'pointer',
-    border: isActive ? '2px solid var(--color-gold)' : '1px solid var(--color-gray-light)',
-    background: isActive ? 'var(--color-cream)' : 'var(--color-white)',
-    boxShadow: isActive ? 'var(--shadow-hover)' : 'var(--shadow-subtle)',
+    border: isActive ? '2px solid var(--color-gold)' : '1px solid #eadfcb',
+    background: isActive ? 'linear-gradient(135deg, #fff6db 0%, #fffdf7 100%)' : 'linear-gradient(180deg, #ffffff 0%, #fffefb 100%)',
+    boxShadow: isActive ? '0 14px 24px rgba(71, 49, 9, 0.14)' : '0 8px 16px rgba(54, 40, 12, 0.06)',
     transition: 'all var(--transition-smooth)',
   });
 
   return (
-    <section style={{ padding: '6rem 0', background: 'var(--color-gray-light)', minHeight: '80vh' }}>
-      <div className="container">
+    <section style={{ padding: '6rem 0', background: 'radial-gradient(circle at top, #fff9ea 0%, #f7f3ea 38%, #f2f0ec 100%)', minHeight: '80vh' }}>
+      <div className="container" style={{ padding: '0 5%' }}>
         
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '2.5rem', color: 'var(--color-black)' }}>Admin Dashboard</h2>
-          <p style={{ color: 'var(--color-charcoal)' }}>Manage users, products, and orders.</p>
+        <div style={{ textAlign: 'center', marginBottom: '3rem', background: '#ffffffb8', border: '1px solid #efe5d4', borderRadius: '16px', padding: '1.8rem 1rem' }}>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '2.7rem', color: 'var(--color-black)' }}>Admin Dashboard</h2>
+          <p style={{ color: 'var(--color-charcoal)' }}>Manage users, products, and orders with a cleaner workflow.</p>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
@@ -279,13 +319,45 @@ const DataOverview = ({ ornaments, users, orders, currentUser, isLoading, error,
               {currentUser?.role?.toLowerCase() === 'admin' && <UploadOrnamentCard onCreateOrnament={onCreateOrnament} />}
               <div style={cardStyle}>
                 <h3 style={{ fontSize: '1.5rem', fontFamily: 'var(--font-heading)', marginBottom: '1rem' }}>Ornaments Inventory</h3>
-                <DataTable
-                  columns={['Name', 'Category', 'Price']}
-                  rows={ornaments.map((ornament) => [ornament.name, ornament.category || 'Uncategorized', `Rs. ${ornament.price}`])}
-                  emptyMessage="No ornaments found."
-                  isLoading={isLoading}
-                  error={error}
-                />
+                {isLoading && <p style={{ color: 'var(--color-charcoal)' }}>Loading...</p>}
+                {error && <p style={{ color: 'red' }}>{error}</p>}
+                {!isLoading && !error && ornaments.length === 0 && <p style={{ color: 'var(--color-charcoal)' }}>No ornaments found.</p>}
+                {!isLoading && !error && ornaments.length > 0 && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={tableStyle}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...cellStyle, borderTop: 'none', color: 'var(--color-charcoal)', fontWeight: 600 }}>Name</th>
+                          <th style={{ ...cellStyle, borderTop: 'none', color: 'var(--color-charcoal)', fontWeight: 600 }}>Category</th>
+                          <th style={{ ...cellStyle, borderTop: 'none', color: 'var(--color-charcoal)', fontWeight: 600 }}>Price</th>
+                          <th style={{ ...cellStyle, borderTop: 'none', color: 'var(--color-charcoal)', fontWeight: 600 }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ornaments.map((ornament) => {
+                          const ornamentId = ornament.id || ornament._id;
+                          return (
+                            <tr key={ornamentId}>
+                              <td style={cellStyle}>{ornament.name}</td>
+                              <td style={cellStyle}>{ornament.category || 'Uncategorized'}</td>
+                              <td style={cellStyle}>Rs. {ornament.price}</td>
+                              <td style={cellStyle}>
+                                <button
+                                  className="btn-secondary"
+                                  disabled={deleteLoadingId === ornamentId}
+                                  onClick={() => handleDeleteOrnament(ornamentId)}
+                                  style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem' }}
+                                >
+                                  {deleteLoadingId === ornamentId ? 'Deleting...' : 'Delete'}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </>
           )}

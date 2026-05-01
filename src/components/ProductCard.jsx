@@ -2,11 +2,18 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShoppingBag } from 'lucide-react';
 import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { addToCart } from '../store/cartSlice';
 
 const ProductCard = ({ product }) => {
   const [isHovered, setIsHovered] = useState(false);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const productId = product.id || product._id;
+  const primaryImage =
+    product.image ||
+    (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null) ||
+    'https://images.unsplash.com/photo-1601121141461-9d6647bca1ed?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
 
   const handleAddToCart = (e) => {
     e.stopPropagation();
@@ -18,6 +25,7 @@ const ProductCard = ({ product }) => {
       whileHover={{ y: -10 }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
+      onClick={() => navigate(`/product/${productId}`)}
       className="product-card"
       style={{
         background: 'var(--color-white)',
@@ -32,7 +40,7 @@ const ProductCard = ({ product }) => {
     >
       <div style={{ position: 'relative', height: '350px', overflow: 'hidden' }}>
         <motion.img 
-          src={product.image || 'https://images.unsplash.com/photo-1601121141461-9d6647bca1ed?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'} 
+          src={primaryImage}
           alt={product.name}
           animate={{ scale: isHovered ? 1.05 : 1 }}
           transition={{ duration: 0.4 }}

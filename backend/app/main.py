@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 from .api import auth, users, products, admin, payment
+from .database import get_database
 
 app = FastAPI(title="KathirVel API", version="1.0.0")
 
@@ -26,6 +27,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def ensure_indexes():
+    database = get_database()
+    database.user.create_index("email", unique=True)
 
 @app.get("/api/health")
 def health_check():

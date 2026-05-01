@@ -32,7 +32,11 @@ export async function fetchOrnaments() {
 
   return payload.items.map((item, index) => ({
     ...item,
-    image: item.image || fallbackImages[index % fallbackImages.length],
+    images: Array.isArray(item.images) ? item.images.filter(Boolean) : [],
+    image:
+      item.image ||
+      (Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : null) ||
+      fallbackImages[index % fallbackImages.length],
   }));
 }
 
@@ -66,5 +70,16 @@ export async function createOrnament(payload) {
   return apiRequest('/ornaments', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchOrnamentById(ornamentId) {
+  const payload = await apiRequest(`/ornaments/${ornamentId}`);
+  return payload.item;
+}
+
+export async function deleteOrnament(ornamentId) {
+  return apiRequest(`/ornaments/${ornamentId}`, {
+    method: 'DELETE',
   });
 }

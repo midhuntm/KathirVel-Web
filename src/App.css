@@ -112,4 +112,16 @@
   .navbar-links {
     display: none; /* simple mobile hide for now */
   }
+
+  .shop-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .filters-panel {
+    position: static !important;
+  }
+
+  .product-detail-layout {
+    grid-template-columns: 1fr !important;
+  }
 }

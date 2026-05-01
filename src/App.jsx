@@ -15,8 +15,11 @@ import Shop from './pages/Shop';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import AdminDashboard from './pages/AdminDashboard';
+import ProductDetail from './pages/ProductDetail';
+import About from './pages/About';
+import Contact from './pages/Contact';
 
-import { createUser, fetchOrnaments, fetchUsers, inviteAdmin, loginUser, createOrnament } from './services/api';
+import { createUser, fetchOrnaments, fetchUsers, inviteAdmin, loginUser, createOrnament, deleteOrnament } from './services/api';
 import { buildOrders } from './utils/orders';
 import './App.css';
 
@@ -41,12 +44,8 @@ function App() {
       try {
         setIsLoading(true);
         setLoadError('');
-        const [ornamentData, userData] = await Promise.all([
-          fetchOrnaments(),
-          fetchUsers(),
-        ]);
+        const ornamentData = await fetchOrnaments();
         setOrnaments(ornamentData);
-        setUsers(userData);
       } catch (error) {
         setLoadError(error.message || 'Unable to load backend data.');
       } finally {
@@ -55,6 +54,19 @@ function App() {
     };
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!currentUser || currentUser.role?.toLowerCase() !== 'admin') return;
+    const loadUsers = async () => {
+      try {
+        const userData = await fetchUsers();
+        setUsers(userData);
+      } catch (error) {
+        setLoadError(error.message || 'Unable to load users.');
+      }
+    };
+    loadUsers();
+  }, [currentUser]);
 
   const handleLogin = async (credentials) => {
     const response = await loginUser(credentials);
@@ -81,6 +93,8 @@ function App() {
     if (view === 'home' || view === 'Home') navigate('/');
     if (view === 'admin' || view === 'Admin') navigate('/admin');
     if (view === 'shop' || view === 'Shop') navigate('/shop');
+    if (view === 'about' || view === 'About') navigate('/about');
+    if (view === 'contact' || view === 'Contact') navigate('/contact');
     if (view === 'cart' || view === 'Cart') navigate('/cart');
   };
 
@@ -96,6 +110,9 @@ function App() {
         <Routes>
           <Route path="/" element={<Home ornaments={ornaments} isLoading={isLoading} error={loadError} />} />
           <Route path="/shop" element={<Shop ornaments={ornaments} isLoading={isLoading} error={loadError} />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/product/:id" element={<ProductDetail ornaments={ornaments} />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/admin/*" element={
@@ -110,7 +127,11 @@ function App() {
                 const res = await createOrnament(p);
                 setOrnaments(curr => [...curr, res.item]);
                 return res;
-              }} 
+              }}
+              onDeleteOrnament={async (ornamentId) => {
+                await deleteOrnament(ornamentId);
+                setOrnaments((curr) => curr.filter((item) => (item.id || item._id) !== ornamentId));
+              }}
               orders={orders} 
             />
           } />

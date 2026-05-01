@@ -32,4 +32,7 @@ class OrnamentCreate(BaseModel):
     originalPrice: Optional[float] = None
     category: str = "General"
     image: Optional[str] = None
+    images: list[str] = Field(default_factory=list)
+    amazonUrl: Optional[str] = None
+    flipkartUrl: Optional[str] = None
     description: Optional[str] = None

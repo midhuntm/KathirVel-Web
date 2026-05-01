@@ -12,6 +12,7 @@ function AdminDashboard({
     error, 
     onInviteAdmin, 
     onCreateOrnament, 
+    onDeleteOrnament,
     orders 
 }) {
   const navigate = useNavigate();
@@ -39,6 +40,7 @@ function AdminDashboard({
                 error={error}
                 onInviteAdmin={onInviteAdmin}
                 onCreateOrnament={onCreateOrnament}
+                onDeleteOrnament={onDeleteOrnament}
                 orders={orders}
                 onNavigateToUser={handleNavigateToUser}
                 onNavigateToOrder={handleNavigateToOrder}

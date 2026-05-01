@@ -30,7 +30,7 @@ const Navbar = ({ currentUser, onLoginClick, onLogoutClick, onNavigate }) => {
           <a
             key={item}
             className="navbar-link"
-            onClick={() => onNavigate(item.toLowerCase() === 'admin' ? 'admin' : 'home')}
+            onClick={() => onNavigate(item.toLowerCase())}
           >
             {item}
           </a>
@@ -90,7 +90,7 @@ const Navbar = ({ currentUser, onLoginClick, onLogoutClick, onNavigate }) => {
               {['Shop', 'About', 'Contact', ...(currentUser?.role?.toLowerCase() === 'admin' ? ['Admin'] : [])].map((item) => (
                 <a
                   key={item}
-                  onClick={() => { onNavigate(item.toLowerCase() === 'admin' ? 'admin' : 'home'); setMobileMenuOpen(false); }}
+                  onClick={() => { onNavigate(item.toLowerCase()); setMobileMenuOpen(false); }}
                   style={{ fontSize: '1.5rem', fontFamily: 'var(--font-heading)', color: 'var(--color-charcoal)' }}
                 >
                   {item}

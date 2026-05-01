@@ -1,148 +1,193 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProductCard from './ProductCard';
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 30, scale: 0.95 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" } },
-  exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+  exit: { opacity: 0, scale: 0.97, transition: { duration: 0.2 } },
+};
+
+const sortOptions = {
+  newest: 'Date, new to old',
+  priceLowHigh: 'Price, low to high',
+  priceHighLow: 'Price, high to low',
+  nameAZ: 'Name, A to Z',
 };
 
 const ProductGrid = ({ products, isLoading, error }) => {
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [maxPrice, setMaxPrice] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
 
-  // Derive unique categories from products
   const categories = useMemo(() => {
-    if (!products) return ['All'];
-    const uniqueCats = new Set(products.map(p => p.category).filter(Boolean));
-    return ['All', ...Array.from(uniqueCats)];
+    const counts = {};
+    (products || []).forEach((item) => {
+      const key = item.category || 'General';
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
   }, [products]);
 
-  // Filter products based on selected category
+  const normalizedProducts = useMemo(
+    () =>
+      (products || []).map((item, index) => ({
+        ...item,
+        _index: index,
+        _price: Number(item.price || 0),
+        _inStock: !item.soldOut,
+      })),
+    [products],
+  );
+
   const filteredProducts = useMemo(() => {
-    if (!products) return [];
-    if (selectedCategory === 'All') return products;
-    return products.filter(p => p.category === selectedCategory);
-  }, [products, selectedCategory]);
+    let next = [...normalizedProducts];
+
+    if (selectedCategories.length > 0) {
+      next = next.filter((item) => selectedCategories.includes(item.category || 'General'));
+    }
+
+    if (inStockOnly) {
+      next = next.filter((item) => item._inStock);
+    }
+
+    if (maxPrice !== '' && !Number.isNaN(Number(maxPrice))) {
+      next = next.filter((item) => item._price <= Number(maxPrice));
+    }
+
+    if (sortBy === 'priceLowHigh') next.sort((a, b) => a._price - b._price);
+    if (sortBy === 'priceHighLow') next.sort((a, b) => b._price - a._price);
+    if (sortBy === 'nameAZ') next.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortBy === 'newest') next.sort((a, b) => b._index - a._index);
+
+    return next;
+  }, [normalizedProducts, selectedCategories, inStockOnly, maxPrice, sortBy]);
+
+  const toggleCategory = (category) => {
+    setSelectedCategories((current) =>
+      current.includes(category) ? current.filter((item) => item !== category) : [...current, category],
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedCategories([]);
+    setInStockOnly(false);
+    setMaxPrice('');
+    setSortBy('newest');
+  };
 
   return (
-    <section className="product-grid-container" style={{ padding: '6rem 5%' }}>
-      <div className="container">
-        
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <span style={{ color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem', fontWeight: 600 }}>
-            Featured
-          </span>
-          <h2 className="product-grid-title" style={{ marginTop: '0.5rem', marginBottom: '1.5rem' }}>Curated Selections</h2>
-          <div style={{ width: '60px', height: '2px', background: 'var(--color-gold)', margin: '0 auto 2.5rem auto' }} />
-          
-          {/* Category Filter */}
-          {!isLoading && !error && products && products.length > 0 && (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              gap: '1rem', 
-              flexWrap: 'wrap',
-              marginBottom: '3rem'
-            }}>
-              {categories.map(category => (
+    <section className="product-grid-container" style={{ padding: '2.5rem 5% 4rem', background: 'linear-gradient(180deg, #fbfaf7 0%, #f3f1ed 100%)' }}>
+      <div className="shop-layout" style={{ display: 'grid', gridTemplateColumns: '280px minmax(0, 1fr)', gap: '1.5rem', alignItems: 'start' }}>
+        <aside
+          className="filters-panel"
+          style={{
+            position: 'sticky',
+            top: '90px',
+            alignSelf: 'start',
+            background: 'linear-gradient(180deg, #f7f6f3 0%, #f1efea 100%)',
+            border: '1px solid #e3ded1',
+            borderRadius: '16px',
+            padding: '1.2rem 1rem 1.3rem',
+            boxShadow: '0 12px 26px rgba(33, 28, 14, 0.08)',
+          }}
+        >
+          <h3 style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>Filters</h3>
+          <p style={{ color: '#555', marginBottom: '1rem' }}>{filteredProducts.length} products</p>
+
+          {selectedCategories.length > 0 && (
+            <div style={{ marginBottom: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+              {selectedCategories.map((category) => (
                 <button
                   key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  style={{
-                    padding: '0.6rem 1.5rem',
-                    borderRadius: '999px',
-                    border: `1px solid ${selectedCategory === category ? 'var(--color-gold)' : 'var(--color-gray-light)'}`,
-                    background: selectedCategory === category ? 'var(--color-gold)' : 'transparent',
-                    color: selectedCategory === category ? 'var(--color-white)' : 'var(--color-charcoal)',
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.9rem',
-                    fontWeight: selectedCategory === category ? 600 : 400,
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-smooth)'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (selectedCategory !== category) {
-                      e.currentTarget.style.borderColor = 'var(--color-gold)';
-                      e.currentTarget.style.color = 'var(--color-black)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedCategory !== category) {
-                      e.currentTarget.style.borderColor = 'var(--color-gray-light)';
-                      e.currentTarget.style.color = 'var(--color-charcoal)';
-                    }
-                  }}
+                  onClick={() => toggleCategory(category)}
+                  style={{ border: '1px solid #d8ceb4', borderRadius: '999px', padding: '0.35rem 0.7rem', cursor: 'pointer', background: '#fff' }}
                 >
-                  {category}
+                  {category} ×
                 </button>
               ))}
             </div>
           )}
-        </div>
 
-        {isLoading && (
-          <p style={{ textAlign: 'center', color: 'var(--color-charcoal)', padding: '4rem' }}>
-            Loading curated pieces...
-          </p>
-        )}
-
-        {!isLoading && error && (
-          <p style={{ textAlign: 'center', color: 'red', padding: '4rem' }}>
-            {error}
-          </p>
-        )}
-
-        {!isLoading && !error && products && products.length === 0 && (
-          <p style={{ textAlign: 'center', color: 'var(--color-charcoal)', padding: '4rem' }}>
-            Our collection is currently being updated. Please check back shortly.
-          </p>
-        )}
-
-        {!isLoading && !error && (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="products-wrapper"
-          >
-            <AnimatePresence mode="popLayout">
-              {filteredProducts.map((product) => (
-                <motion.div 
-                  key={product.id || product._id} 
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="show"
-                  exit="exit"
-                  layout
-                >
-                  <ProductCard product={product} />
-                </motion.div>
+          <label style={{ display: 'grid', gap: '0.35rem', marginBottom: '1rem' }}>
+            <span style={{ fontWeight: 600 }}>Sort by</span>
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} style={{ padding: '0.6rem', border: '1px solid #dbd3c1', borderRadius: '9px', background: '#fff' }}>
+              {Object.entries(sortOptions).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
               ))}
-            </AnimatePresence>
-            
-            {filteredProducts.length === 0 && products.length > 0 && (
-              <motion.p 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--color-charcoal)', padding: '2rem 0' }}
-              >
-                No pieces found in this category.
-              </motion.p>
-            )}
-          </motion.div>
-        )}
-        
-        {!isLoading && !error && filteredProducts.length > 0 && (
-          <div style={{ textAlign: 'center', marginTop: '5rem' }}>
-            <button className="btn-secondary">View All Pieces</button>
+            </select>
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <input type="checkbox" checked={inStockOnly} onChange={(event) => setInStockOnly(event.target.checked)} />
+            In stock only
+          </label>
+
+          <label style={{ display: 'grid', gap: '0.35rem', marginBottom: '1rem' }}>
+            <span style={{ fontWeight: 600 }}>Max price</span>
+            <input
+              type="number"
+              min="0"
+              value={maxPrice}
+              onChange={(event) => setMaxPrice(event.target.value)}
+              placeholder="Ex: 500"
+              style={{ padding: '0.6rem', border: '1px solid #dbd3c1', borderRadius: '9px', background: '#fff' }}
+            />
+          </label>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Product type</p>
+            <div style={{ display: 'grid', gap: '0.45rem' }}>
+              {categories.map(([category, count]) => (
+                <label key={category} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedCategories.includes(category)}
+                    onChange={() => toggleCategory(category)}
+                  />
+                  <span>
+                    {category} <span style={{ color: '#777' }}>({count})</span>
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
-        )}
+
+          <button onClick={clearFilters} className="btn-secondary" style={{ width: '100%' }}>
+            Clear filters
+          </button>
+        </aside>
+
+        <div>
+          {isLoading && <p style={{ textAlign: 'center', padding: '4rem' }}>Loading curated pieces...</p>}
+          {!isLoading && error && <p style={{ textAlign: 'center', color: 'red', padding: '4rem' }}>{error}</p>}
+          {!isLoading && !error && products && products.length === 0 && (
+            <p style={{ textAlign: 'center', padding: '4rem' }}>Our collection is currently being updated.</p>
+          )}
+
+          {!isLoading && !error && (
+            <motion.div variants={containerVariants} initial="hidden" animate="show" className="products-wrapper">
+              <AnimatePresence mode="popLayout">
+                {filteredProducts.map((product) => (
+                  <motion.div key={product.id || product._id} variants={itemVariants} initial="hidden" animate="show" exit="exit" layout>
+                    <ProductCard product={product} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {filteredProducts.length === 0 && products.length > 0 && (
+                <p style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem 0' }}>No products match this filter.</p>
+              )}
+            </motion.div>
+          )}
+        </div>
       </div>
     </section>
   );
