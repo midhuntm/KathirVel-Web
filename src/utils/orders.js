@@ -34,5 +34,10 @@ export const getOrdersForUser = (orders, user) => {
   }
 
   const userId = getEntityId(user, user.email);
-  return orders.filter((order) => order.userId === userId || order.user?.email === user.email);
+  return orders.filter(
+    (order) =>
+      order.userId === userId ||
+      order.user?.email === user.email ||
+      order.user_email === user.email
+  );
 };

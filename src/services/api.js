@@ -73,6 +73,24 @@ export async function createOrnament(payload) {
   });
 }
 
+export async function createOrder(payload) {
+  return apiRequest('/orders', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchOrders() {
+  const payload = await apiRequest('/orders');
+  return payload.items || [];
+}
+
+export async function updateOrderStatus(orderId, status) {
+  return apiRequest(`/orders/${orderId}/status?status=${encodeURIComponent(status)}`, {
+    method: 'PATCH',
+  });
+}
+
 export async function fetchOrnamentById(ornamentId) {
   const payload = await apiRequest(`/ornaments/${ornamentId}`);
   return payload.item;

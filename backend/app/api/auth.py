@@ -1,10 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime, timezone
-from bson import ObjectId
+from fastapi import APIRouter, HTTPException, Header, Depends
 
 from ..database import get_database
-from ..core.security import create_access_token, verify_password, get_password_hash
+from ..core.security import create_access_token, verify_password, get_password_hash, decode_access_token
 from ..schemas import LoginRequest
 
 router = APIRouter()
@@ -16,6 +13,34 @@ def serialize_document(document):
         "id": str(document.get("_id")),
         **{key: value for key, value in document.items() if key != "_id"},
     }
+
+
+def get_current_user(authorization: str = Header(default=None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header.")
+
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_access_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.") from exc
+
+    user_email = payload.get("sub")
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Invalid token payload.")
+
+    database = get_database()
+    user = database.user.find_one({"email": user_email}, {"password": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found for token.")
+
+    return serialize_document(user)
+
+
+def require_admin(current_user=Depends(get_current_user)):
+    if (current_user.get("role") or "").lower() != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    return current_user
 
 @router.post("/login")
 def login(payload: LoginRequest):

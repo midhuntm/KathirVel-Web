@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { clearCart } from '../store/cartSlice';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-
-// Setup Stripe outside component
-const stripePromise = loadStripe('pk_test_sample');
+import { createOrder } from '../services/api';
 
 const inputStyle = {
   width: '100%',
@@ -20,50 +16,53 @@ const inputStyle = {
   marginBottom: '1rem'
 };
 
-const CheckoutForm = ({ totalAmount }) => {
-  const stripe = useStripe();
-  const elements = useElements();
+const CheckoutForm = ({ totalAmount, items, currentUser, shipping }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
-
+    setErrorMessage('');
+    if (!currentUser?.email) {
+      setErrorMessage('Please login to place an order.');
+      return;
+    }
     setIsProcessing(true);
-
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required'
-    });
-
-    if (error) {
-      setErrorMessage(error.message);
-      setIsProcessing(false);
-    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+    try {
+      await createOrder({
+        items: items.map((item) => ({
+          ornament_id: item.id || item._id,
+          quantity: item.quantity || 1,
+        })),
+        shipping_name: shipping.fullName,
+        shipping_email: shipping.email,
+        shipping_address: `${shipping.address1}${shipping.address2 ? `, ${shipping.address2}` : ''}, ${shipping.city}, ${shipping.postalCode}, ${shipping.country}`,
+      });
       setIsProcessing(false);
       dispatch(clearCart());
-      alert('Secure Payment Successful! Thank you for purchasing from Kathir Vel.');
+      alert('Order placed successfully. Thank you for shopping with Kathir Vel.');
       navigate('/');
-    } else {
+    } catch (error) {
       setIsProcessing(false);
-      alert('Payment status: ' + paymentIntent?.status);
+      setErrorMessage(error.message || 'Unable to place order.');
     }
   };
 
   return (
     <form id="checkout-form" onSubmit={handleSubmit}>
-      <PaymentElement />
-      {errorMessage && <div style={{ color: 'red', marginTop: '1rem' }}>{errorMessage}</div>}
+      <div style={{ color: 'var(--color-charcoal)', marginBottom: '1rem' }}>
+        Payment mode: Cash on Delivery
+      </div>
+      {errorMessage && <div style={{ color: 'red', marginBottom: '1rem' }}>{errorMessage}</div>}
       <button
         type="submit"
         className="btn-primary"
-        disabled={isProcessing || !stripe || !elements}
+        disabled={isProcessing}
         style={{ width: '100%', padding: '1rem', marginTop: '2rem', opacity: isProcessing ? 0.7 : 1 }}
       >
-        {isProcessing ? 'Processing Secure Payment...' : `Pay Rs. ${totalAmount}`}
+        {isProcessing ? 'Placing Order...' : `Place Order (Rs. ${totalAmount})`}
       </button>
     </form>
   );
@@ -73,21 +72,15 @@ const Checkout = () => {
   const items = useSelector((state) => state.cart.items);
   const currentUser = useSelector((state) => state.user.currentUser);
   const totalAmount = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-
-  const [clientSecret, setClientSecret] = useState('');
-
-  useEffect(() => {
-    if (totalAmount > 0) {
-      fetch('http://localhost:8000/api/payment/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: totalAmount })
-      })
-        .then((res) => res.json())
-        .then((data) => setClientSecret(data.clientSecret))
-        .catch((err) => console.error('Failed to create payment intent', err));
-    }
-  }, [totalAmount]);
+  const [shipping, setShipping] = useState({
+    fullName: currentUser?.name || '',
+    email: currentUser?.email || '',
+    address1: '',
+    address2: '',
+    city: '',
+    postalCode: '',
+    country: '',
+  });
 
   if (items.length === 0) {
     return <div style={{ padding: '8rem', textAlign: 'center' }}>Your cart is empty. Please shop first.</div>;
@@ -103,15 +96,15 @@ const Checkout = () => {
         <div style={{ background: 'var(--color-white)', padding: '2.5rem', borderRadius: '8px', boxShadow: 'var(--shadow-subtle)' }}>
           <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', marginBottom: '2rem' }}>Shipping Information</h3>
           <div>
-            <input type="text" placeholder="Full Name" required style={inputStyle} defaultValue={currentUser?.name || ''} />
-            <input type="email" placeholder="Email Address" required style={inputStyle} defaultValue={currentUser?.email || ''} />
-            <input type="text" placeholder="Address Line 1" required style={inputStyle} />
-            <input type="text" placeholder="Address Line 2 (Optional)" style={inputStyle} />
+            <input type="text" placeholder="Full Name" required style={inputStyle} value={shipping.fullName} onChange={(e) => setShipping((c) => ({ ...c, fullName: e.target.value }))} />
+            <input type="email" placeholder="Email Address" required style={inputStyle} value={shipping.email} onChange={(e) => setShipping((c) => ({ ...c, email: e.target.value }))} />
+            <input type="text" placeholder="Address Line 1" required style={inputStyle} value={shipping.address1} onChange={(e) => setShipping((c) => ({ ...c, address1: e.target.value }))} />
+            <input type="text" placeholder="Address Line 2 (Optional)" style={inputStyle} value={shipping.address2} onChange={(e) => setShipping((c) => ({ ...c, address2: e.target.value }))} />
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <input type="text" placeholder="City" required style={inputStyle} />
-              <input type="text" placeholder="Postal Code" required style={inputStyle} />
+              <input type="text" placeholder="City" required style={inputStyle} value={shipping.city} onChange={(e) => setShipping((c) => ({ ...c, city: e.target.value }))} />
+              <input type="text" placeholder="Postal Code" required style={inputStyle} value={shipping.postalCode} onChange={(e) => setShipping((c) => ({ ...c, postalCode: e.target.value }))} />
             </div>
-            <input type="text" placeholder="Country" required style={inputStyle} />
+            <input type="text" placeholder="Country" required style={inputStyle} value={shipping.country} onChange={(e) => setShipping((c) => ({ ...c, country: e.target.value }))} />
           </div>
         </div>
 
@@ -120,13 +113,7 @@ const Checkout = () => {
           <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', marginBottom: '2rem' }}>Payment Details</h3>
 
           <div style={{ marginBottom: '2rem' }}>
-            {clientSecret ? (
-              <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
-                <CheckoutForm totalAmount={totalAmount} />
-              </Elements>
-            ) : (
-              <p>Initializing secure payment gateway...</p>
-            )}
+            <CheckoutForm totalAmount={totalAmount} items={items} currentUser={currentUser} shipping={shipping} />
           </div>
 
           <div style={{ borderTop: '1px solid var(--color-gray-light)', paddingTop: '1.5rem', marginBottom: '1rem' }}>

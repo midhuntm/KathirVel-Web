@@ -36,3 +36,12 @@ class OrnamentCreate(BaseModel):
     amazonUrl: Optional[str] = None
     flipkartUrl: Optional[str] = None
     description: Optional[str] = None
+
+
+class OrderCreate(BaseModel):
+    ornament_id: Optional[str] = None
+    quantity: int = Field(ge=1, default=1)
+    items: list[dict] = Field(default_factory=list)
+    shipping_name: Optional[str] = None
+    shipping_email: Optional[EmailStr] = None
+    shipping_address: Optional[str] = None

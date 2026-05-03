@@ -3,13 +3,13 @@ import smtplib
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 import jwt
 
 from ..database import get_database
 from ..schemas import AdminInviteRequest, AcceptInviteRequest
 from ..core.security import get_password_hash, create_access_token, SECRET_KEY, ALGORITHM
-from .auth import serialize_document
+from .auth import serialize_document, require_admin
 
 router = APIRouter()
 
@@ -46,12 +46,10 @@ def send_invitation_email(recipient_email, recipient_name, invite_token):
 
 
 @router.post("/invite")
-def invite_admin(payload: AdminInviteRequest):
+def invite_admin(payload: AdminInviteRequest, admin_user=Depends(require_admin)):
     database = get_database()
 
-    inviter = database.user.find_one({"email": payload.inviter_email, "role": "admin"}, {"password": 0})
-    if not inviter:
-      raise HTTPException(status_code=403, detail="Only admins can send admin invites.")
+    inviter_email = admin_user.get("email") or payload.inviter_email
 
     existing_user = database.user.find_one({"email": payload.email})
     if existing_user:
@@ -63,7 +61,7 @@ def invite_admin(payload: AdminInviteRequest):
         "name": payload.name,
         "email": payload.email,
         "role": "admin",
-        "invited_by": payload.inviter_email,
+        "invited_by": inviter_email,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "pending",
     }

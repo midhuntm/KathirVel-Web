@@ -19,8 +19,7 @@ import ProductDetail from './pages/ProductDetail';
 import About from './pages/About';
 import Contact from './pages/Contact';
 
-import { createUser, fetchOrnaments, fetchUsers, inviteAdmin, loginUser, createOrnament, deleteOrnament } from './services/api';
-import { buildOrders } from './utils/orders';
+import { createUser, fetchOrnaments, fetchUsers, inviteAdmin, loginUser, createOrnament, deleteOrnament, fetchOrders } from './services/api';
 import './App.css';
 
 function App() {
@@ -30,6 +29,7 @@ function App() {
 
   const [ornaments, setOrnaments] = useState([]);
   const [users, setUsers] = useState([]);
+  const [orders, setOrders] = useState([]);
   
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
@@ -37,7 +37,31 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const orders = buildOrders(users, ornaments);
+  const toOrderViewModel = (rawOrder) => {
+    const firstItem = Array.isArray(rawOrder.items) && rawOrder.items.length > 0 ? rawOrder.items[0] : null;
+    const quantity = Number(rawOrder.quantity || firstItem?.quantity || 1);
+    return {
+      ...rawOrder,
+      id: rawOrder.id,
+      tracker_id: rawOrder.id,
+      placedOn: rawOrder.created_at ? String(rawOrder.created_at).slice(0, 10) : '-',
+      quantity,
+      total: Number(rawOrder.total_price || firstItem?.line_total || 0),
+      user: {
+        name: rawOrder.user_name || rawOrder.shipping_name || 'Unknown user',
+        email: rawOrder.user_email || rawOrder.shipping_email || '-',
+        role: 'customer',
+      },
+      ornament: firstItem
+        ? {
+            name: firstItem.ornament_name,
+            category: firstItem.category,
+            price: firstItem.unit_price,
+            image: firstItem.image,
+          }
+        : null,
+    };
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -56,16 +80,24 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!currentUser || currentUser.role?.toLowerCase() !== 'admin') return;
-    const loadUsers = async () => {
+    const loadRoleData = async () => {
       try {
-        const userData = await fetchUsers();
-        setUsers(userData);
+        const [ordersData, usersData] = await Promise.all([
+          fetchOrders(),
+          currentUser?.role?.toLowerCase() === 'admin' ? fetchUsers() : Promise.resolve([]),
+        ]);
+        setOrders((ordersData || []).map(toOrderViewModel));
+        setUsers(usersData || []);
       } catch (error) {
-        setLoadError(error.message || 'Unable to load users.');
+        setLoadError(error.message || 'Unable to load account data.');
       }
     };
-    loadUsers();
+    if (currentUser) {
+      loadRoleData();
+    } else {
+      setOrders([]);
+      setUsers([]);
+    }
   }, [currentUser]);
 
   const handleLogin = async (credentials) => {

@@ -1,13 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from ..database import get_database
 from ..schemas import UserCreate
 from ..core.security import get_password_hash, create_access_token
-from .auth import serialize_document
+from .auth import serialize_document, require_admin
 
 router = APIRouter()
 
 @router.get("/")
-def list_users():
+def list_users(_admin=Depends(require_admin)):
     database = get_database()
     users = [serialize_document(item) for item in database.user.find({}, {"password": 0})]
     return {"items": users}
